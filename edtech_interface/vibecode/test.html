@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Roll Landing Page</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #07080f;
+    --surface: #10121c;
+    --border: rgba(255,255,255,0.08);
+    --accent: #6c63ff;
+    --accent2: #ff6b9d;
+    --text: #e8e9f0;
+    --muted: #7b7e99;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 4rem;
+    background: rgba(7,8,15,0.7);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; transition: color .2s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: .55rem 1.4rem; border-radius: 8px;
+    font-size: .9rem; cursor: pointer; transition: opacity .2s;
+  }
+  .nav-cta:hover { opacity: .85; }
+
+  /* ── SECTION BASE ── */
+  section { padding: 8rem 4rem; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .label {
+    display: inline-block; font-size: .75rem; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 1rem;
+  }
+  h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; line-height: 1.15; margin-bottom: 1rem; }
+  .sub { color: var(--muted); font-size: 1.1rem; line-height: 1.7; max-width: 560px; }
+
+  /* ═══════════════════════════════════════
+     1. HERO — chữ roll từ dưới lên (rotateX)
+  ════════════════════════════════════════ */
+  #hero {
+    min-height: 100vh;
+    display: flex; align-items: center;
+    padding-top: 6rem;
+    perspective: 1200px; /* BẮT BUỘC cho 3D */
+    overflow: hidden;
+    position: relative;
+  }
+
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108,99,255,.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-content { position: relative; }
+
+  /* Mỗi dòng hero được wrap để tạo hiệu ứng roll */
+  .roll-line { overflow: hidden; } /* clip để ẩn phần chưa roll xong */
+
+  .roll-text {
+    display: block;
+    transform: rotateX(90deg) translateY(30px); /* bắt đầu ở vị trí "nằm ngửa" */
+    transform-origin: bottom center;
+    opacity: 0;
+    transition: transform .9s cubic-bezier(.16,1,.3,1), opacity .6s ease;
+  }
+
+  /* Khi thêm class .visible → text roll lên vị trí bình thường */
+  .roll-text.visible {
+    transform: rotateX(0deg) translateY(0);
+    opacity: 1;
+  }
+
+  /* Delay từng dòng */
+  .roll-text:nth-child(1) { transition-delay: 0s; }
+  .roll-text:nth-child(2) { transition-delay: .15s; }
+  .roll-text:nth-child(3) { transition-delay: .3s; }
+
+  .hero-title {
+    font-size: clamp(3rem, 7vw, 6rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+  }
+  .hero-title .accent { color: var(--accent); }
+  .hero-title .accent2 { color: var(--accent2); }
+
+  .hero-desc {
+    font-size: 1.2rem; color: var(--muted);
+    max-width: 500px; line-height: 1.7;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    padding: .85rem 2rem; border-radius: 10px;
+    border: none; font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(108,99,255,.4); }
+
+  .btn-outline {
+    background: transparent; color: var(--text);
+    padding: .85rem 2rem; border-radius: 10px;
+    border: 1px solid var(--border); font-size: 1rem; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .btn-outline:hover { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.05); }
+
+  /* ── Hero floating card (3D tilt on mousemove) ── */
+  .hero-visual {
+    position: absolute; right: 4rem; top: 50%;
+    transform: translateY(-50%);
+    perspective: 800px;
+  }
+  .tilt-card {
+    width: 340px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    transform-style: preserve-3d;
+    transition: transform .1s ease;
+    will-change: transform;
+  }
+  .tilt-card-shine {
+    position: absolute; inset: 0; border-radius: 20px;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.08), transparent 60%);
+    pointer-events: none; opacity: 0; transition: opacity .3s;
+  }
+  .tilt-card:hover .tilt-card-shine { opacity: 1; }
+
+  .card-metric { font-size: 3rem; font-weight: 800; color: var(--accent); }
+  .card-label { color: var(--muted); font-size: .9rem; margin-bottom: 1.5rem; }
+  .card-bar {
+    height: 6px; border-radius: 3px;
+    background: rgba(255,255,255,.06);
+    margin-bottom: .6rem; overflow: hidden;
+  }
+  .card-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: var(--accent);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform 1.2s cubic-bezier(.16,1,.3,1);
+  }
+  .card-bar-fill.visible { transform: scaleX(1); }
+  .card-bar-fill.w70 { width: 70%; }
+  .card-bar-fill.w85 { width: 85%; }
+  .card-bar-fill.w55 { width: 55%; }
+
+  /* ═══════════════════════════════════════
+     2. FEATURES — card roll vào từ bên (rotateY)
+  ════════════════════════════════════════ */
+  #features { background: var(--surface); }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+    perspective: 1000px; /* perspective cho cả grid */
+  }
+
+  .feature-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    transform: rotateY(-60deg) translateX(-40px);
+    opacity: 0;
+    transition: transform .8s cubic-bezier(.16,1,.3,1), opacity .6s ease;
+    transform-style: preserve-3d;
+  }
+
+  .feature-card.visible {
+    transform: rotateY(0deg) translateX(0);
+    opacity: 1;
+  }
+
+  /* Delay cho từng card */
+  .feature-card:nth-child(2) { transition-delay: .15s; }
+  .feature-card:nth-child(3) { transition-delay: .3s; }
+  .feature-card:nth-child(4) { transition-delay: .45s; }
+  .feature-card:nth-child(5) { transition-delay: .6s; }
+  .feature-card:nth-child(6) { transition-delay: .75s; }
+
+  .feature-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: rgba(108,99,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; margin-bottom: 1.2rem;
+  }
+  .feature-card h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: .5rem; }
+  .feature-card p { color: var(--muted); font-size: .9rem; line-height: 1.6; }
+
+  /* ═══════════════════════════════════════
+     3. STATS — số đếm + 3D flip
+  ════════════════════════════════════════ */
+  #stats {
+    background: var(--bg);
+    text-align: center;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+  }
+
+  .stat-item {
+    perspective: 600px;
+  }
+
+  /* 3D flip effect cho số */
+  .stat-flip {
+    transform-style: preserve-3d;
+    transform: rotateX(90deg); /* bắt đầu "nằm ngửa" phía trên */
+    opacity: 0;
+    transition: transform .7s cubic-bezier(.16,1,.3,1), opacity .4s;
+  }
+  .stat-flip.visible {
+    transform: rotateX(0deg);
+    opacity: 1;
+  }
+  .stat-item:nth-child(2) .stat-flip { transition-delay: .12s; }
+  .stat-item:nth-child(3) .stat-flip { transition-delay: .24s; }
+  .stat-item:nth-child(4) .stat-flip { transition-delay: .36s; }
+
+  .stat-number {
+    font-size: 3.5rem; font-weight: 800;
+    color: var(--accent);
+    display: block;
+    letter-spacing: -0.03em;
+  }
+  .stat-desc { color: var(--muted); font-size: .95rem; margin-top: .3rem; }
+
+  /* ═══════════════════════════════════════
+     4. DRUM ROLL — section xoay như bánh xe
+  ════════════════════════════════════════ */
+  #drum {
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .drum-container {
+    display: flex;
+    gap: 4rem;
+    align-items: flex-start;
+  }
+
+  .drum-left { flex: 0 0 400px; }
+
+  .drum-right {
+    flex: 1;
+    perspective: 800px;
+    height: 400px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Drum wheel — các item xếp theo vòng tròn */
+  .drum-wheel {
+    transform-style: preserve-3d;
+    width: 100%;
+    transition: transform .6s cubic-bezier(.16,1,.3,1);
+    position: relative;
+  }
+
+  .drum-item {
+    width: 100%;
+    padding: 1.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backface-visibility: hidden;
+    position: absolute;
+    top: 0; left: 0;
+    opacity: 0;
+    transform: rotateX(-90deg) translateZ(0);
+    transition: transform .5s, opacity .4s;
+  }
+
+  .drum-item.active {
+    position: relative;
+    opacity: 1;
+    transform: rotateX(0) translateZ(0);
+    transition: transform .5s cubic-bezier(.16,1,.3,1), opacity .4s;
+  }
+
+  .drum-item h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: .7rem; }
+  .drum-item p { color: var(--muted); line-height: 1.7; }
+
+  .drum-tabs { display: flex; flex-direction: column; gap: .8rem; margin-top: 2rem; }
+  .drum-tab {
+    padding: .7rem 1rem; border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent; color: var(--muted);
+    text-align: left; cursor: pointer;
+    font-size: .95rem; transition: all .2s;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .drum-tab.active {
+    background: rgba(108,99,255,.12);
+    border-color: rgba(108,99,255,.3);
+    color: var(--text);
+  }
+  .drum-tab .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+    transition: background .2s;
+  }
+  .drum-tab.active .dot { background: var(--accent); }
+
+  /* ═══════════════════════════════════════
+     5. TESTIMONIALS — card roll 3D theo scroll
+  ════════════════════════════════════════ */
+  #testimonials { background: var(--bg); }
+
+  .testimonials-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+
+  .testimonial-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    /* Roll từ dưới với rotateX */
+    transform: perspective(800px) rotateX(40deg) translateY(60px);
+    opacity: 0;
+    transition: transform .9s cubic-bezier(.16,1,.3,1), opacity .6s;
+  }
+
+  .testimonial-card.visible {
+    transform: perspective(800px) rotateX(0deg) translateY(0);
+    opacity: 1;
+  }
+  .testimonial-card:nth-child(2) { transition-delay: .2s; }
+  .testimonial-card:nth-child(3) { transition-delay: .4s; }
+
+  .t-quote { font-size: 1rem; line-height: 1.7; color: var(--text); margin-bottom: 1.2rem; }
+  .t-author { display: flex; align-items: center; gap: .8rem; }
+  .t-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 700; color: #fff;
+  }
+  .t-name { font-size: .9rem; font-weight: 600; }
+  .t-role { font-size: .8rem; color: var(--muted); }
+
+  /* ═══════════════════════════════════════
+     6. CTA SECTION
+  ════════════════════════════════════════ */
+  #cta {
+    background: var(--surface);
+    text-align: center;
+  }
+
+  .cta-box {
+    background: linear-gradient(135deg, rgba(108,99,255,.15), rgba(255,107,157,.08));
+    border: 1px solid rgba(108,99,255,.25);
+    border-radius: 24px;
+    padding: 5rem 2rem;
+    transform: perspective(1000px) rotateX(8deg);
+    opacity: 0;
+    transition: transform 1s cubic-bezier(.16,1,.3,1), opacity .7s;
+  }
+  .cta-box.visible {
+    transform: perspective(1000px) rotateX(0deg);
+    opacity: 1;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 2rem 4rem;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--muted); font-size: .85rem;
+  }
+
+  /* ── SCROLL PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    z-index: 200;
+    width: 0%;
+    transition: width .1s;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    section { padding: 5rem 1.5rem; }
+    .hero-visual { display: none; }
+    .drum-container { flex-direction: column; }
+    .drum-left { flex: none; width: 100%; }
+    footer { flex-direction: column; gap: 1rem; text-align: center; }
+  }
+
+  /* Reduce motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: .01ms !important;
+      animation-duration: .01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div id="progress-bar"></div>
+
+<!-- Nav -->
+<nav>
+  <div class="logo">Roll<span>3D</span></div>
+  <div class="nav-links">
+    <a href="#features">Tính năng</a>
+    <a href="#stats">Thống kê</a>
+    <a href="#drum">Sản phẩm</a>
+    <a href="#testimonials">Đánh giá</a>
+  </div>
+  <button class="nav-cta">Dùng thử miễn phí</button>
+</nav>
+
+<!-- ①  HERO — Roll text từ dưới lên -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="container hero-content">
+    <div class="hero-title">
+      <div class="roll-line"><span class="roll-text">Thiết kế</span></div>
+      <div class="roll-line"><span class="roll-text"><span class="accent">nhanh hơn</span></span></div>
+      <div class="roll-line"><span class="roll-text">với <span class="accent2">3D Roll</span></span></div>
+    </div>
+    <p class="hero-desc">
+      Trải nghiệm UI hiện đại với hiệu ứng cuộn 3 chiều mượt mà.
+      Tạo ấn tượng đầu tiên mà người dùng không thể rời mắt.
+    </p>
+    <div class="hero-ctas">
+      <button class="btn-primary">Bắt đầu ngay →</button>
+      <button class="btn-outline">Xem demo</button>
+    </div>
+  </div>
+
+  <!-- Tilt card -->
+  <div class="hero-visual">
+    <div class="tilt-card" id="tiltCard">
+      <div class="tilt-card-shine"></div>
+      <div class="card-metric">98.6%</div>
+      <div class="card-label">Tỷ lệ hài lòng</div>
+      <div class="card-bar"><div class="card-bar-fill w85"></div></div>
+      <div class="card-bar"><div class="card-bar-fill w70"></div></div>
+      <div class="card-bar"><div class="card-bar-fill w55"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ② FEATURES — Cards roll từ bên trái -->
+<section id="features">
+  <div class="container">
+    <span class="label">Tính năng</span>
+    <h2>Mọi thứ bạn cần</h2>
+    <p class="sub">Bộ công cụ hoàn chỉnh để xây dựng trải nghiệm người dùng xuất sắc.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <h3>Thiết kế 3D trực quan</h3>
+        <p>CSS transform 3D với perspective giúp tạo chiều sâu thực sự cho giao diện.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Hiệu suất cao</h3>
+        <p>Chỉ dùng CSS và JavaScript thuần, không cần thư viện nặng nề.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Responsive hoàn toàn</h3>
+        <p>Hiệu ứng đẹp trên mọi thiết bị từ mobile đến màn hình lớn.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎭</div>
+        <h3>Nhiều kiểu roll</h3>
+        <p>rotateX, rotateY, drum wheel, tilt on hover — đủ bộ kỹ thuật 3D.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">♿</div>
+        <h3>Accessibility</h3>
+        <p>Tắt animation khi người dùng bật prefers-reduced-motion.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔧</div>
+        <h3>Dễ tuỳ chỉnh</h3>
+        <p>CSS variables và class đơn giản, dễ tích hợp vào dự án của bạn.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ③ STATS — Flip 3D vào -->
+<section id="stats">
+  <div class="container">
+    <span class="label">Con số</span>
+    <h2>Kết quả thực tế</h2>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-flip">
+          <span class="stat-number" data-target="12500">0</span>
+          <div class="stat-desc">Người dùng tin tưởng</div>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-flip">
+          <span class="stat-number" data-target="98">0</span>
+          <div class="stat-desc">% hài lòng</div>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-flip">
+          <span class="stat-number" data-target="340">0</span>
+          <div class="stat-desc">Dự án triển khai</div>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-flip">
+          <span class="stat-number" data-target="4">0</span>
+          <div class="stat-desc">Năm kinh nghiệm</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ④ DRUM ROLL — Tab xoay như bánh xe -->
+<section id="drum">
+  <div class="container">
+    <span class="label">Sản phẩm</span>
+    <h2>Xoay qua từng tính năng</h2>
+
+    <div class="drum-container" style="margin-top: 3rem;">
+      <div class="drum-left">
+        <p class="sub">Nhấn vào từng tab để xem nội dung cuộn vào như bánh xe drum.</p>
+        <div class="drum-tabs">
+          <button class="drum-tab active" data-index="0">
+            <span class="dot"></span> Phân tích thống kê
+          </button>
+          <button class="drum-tab" data-index="1">
+            <span class="dot"></span> Thiết kế UI/UX
+          </button>
+          <button class="drum-tab" data-index="2">
+            <span class="dot"></span> Tích hợp API
+          </button>
+          <button class="drum-tab" data-index="3">
+            <span class="dot"></span> Bảo mật nâng cao
+          </button>
+        </div>
+      </div>
+
+      <div class="drum-right">
+        <div class="drum-wheel">
+          <div class="drum-item active" data-panel="0">
+            <h3>📊 Phân tích thống kê</h3>
+            <p>Dashboard theo dõi realtime với biểu đồ 3D, heatmap và báo cáo tự động. Dữ liệu cập nhật mỗi giây để bạn không bỏ lỡ bất kỳ xu hướng nào.</p>
+            <br>
+            <div style="display:flex; gap:.8rem; flex-wrap:wrap; margin-top:.5rem;">
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">Realtime</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">Biểu đồ 3D</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">Export CSV</span>
+            </div>
+          </div>
+          <div class="drum-item" data-panel="1">
+            <h3>🎨 Thiết kế UI/UX</h3>
+            <p>Công cụ thiết kế kéo thả với thư viện 500+ component sẵn có. Xuất code React / Vue / HTML chỉ với một cú click.</p>
+            <br>
+            <div style="display:flex; gap:.8rem; flex-wrap:wrap; margin-top:.5rem;">
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">Drag & Drop</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">500+ Components</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">Export Code</span>
+            </div>
+          </div>
+          <div class="drum-item" data-panel="2">
+            <h3>🔌 Tích hợp API</h3>
+            <p>Kết nối với 200+ dịch vụ phổ biến chỉ trong vài phút. REST, GraphQL, WebSocket đều được hỗ trợ đầy đủ.</p>
+            <br>
+            <div style="display:flex; gap:.8rem; flex-wrap:wrap; margin-top:.5rem;">
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">REST & GraphQL</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">WebSocket</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">200+ Services</span>
+            </div>
+          </div>
+          <div class="drum-item" data-panel="3">
+            <h3>🔐 Bảo mật nâng cao</h3>
+            <p>Mã hoá AES-256, xác thực 2 lớp, kiểm soát quyền truy cập chi tiết. Tuân thủ GDPR và ISO 27001 đầy đủ.</p>
+            <br>
+            <div style="display:flex; gap:.8rem; flex-wrap:wrap; margin-top:.5rem;">
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">AES-256</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">2FA</span>
+              <span style="background:rgba(108,99,255,.15); color:#a8a2ff; padding:.3rem .8rem; border-radius:6px; font-size:.8rem;">GDPR</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑤ TESTIMONIALS — Roll từ dưới với rotateX -->
+<section id="testimonials">
+  <div class="container">
+    <span class="label">Đánh giá</span>
+    <h2>Khách hàng nói gì?</h2>
+
+    <div class="testimonials-track">
+      <div class="testimonial-card">
+        <p class="t-quote">"Hiệu ứng 3D roll tạo ra trải nghiệm hoàn toàn khác biệt. Landing page của chúng tôi tăng conversion 40% chỉ sau 1 tuần triển khai."</p>
+        <div class="t-author">
+          <div class="t-avatar">AN</div>
+          <div>
+            <div class="t-name">Anh Nguyễn</div>
+            <div class="t-role">CEO, TechStart Vietnam</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p class="t-quote">"Code sạch, dễ hiểu. Mình đã học được cả bộ kỹ thuật CSS 3D transform từ template này và áp dụng vào nhiều dự án khác."</p>
+        <div class="t-author">
+          <div class="t-avatar">ML</div>
+          <div>
+            <div class="t-name">Minh Lê</div>
+            <div class="t-role">Frontend Developer</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p class="t-quote">"Khách hàng của mình lần đầu thấy landing page là 'wow' ngay lập tức. Hiệu ứng cuộn 3D tạo cảm giác premium mà không cần thư viện nặng."</p>
+        <div class="t-author">
+          <div class="t-avatar">HP</div>
+          <div>
+            <div class="t-name">Hương Phạm</div>
+            <div class="t-role">UX Designer, Studio 8</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑥ CTA — Roll 3D vào từ góc -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-box">
+      <span class="label">Bắt đầu hôm nay</span>
+      <h2 style="font-size: clamp(2rem,4vw,2.8rem); margin: 1rem 0;">
+        Sẵn sàng tạo ấn tượng<br>với hiệu ứng 3D?
+      </h2>
+      <p style="color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem;">
+        Tải file HTML, mở trình duyệt và bắt đầu tuỳ chỉnh theo dự án của bạn.
+      </p>
+      <button class="btn-primary" style="font-size: 1.1rem; padding: 1rem 2.5rem;">
+        Tải xuống miễn phí →
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div>© 2025 Roll3D. Được tạo bởi Claude.</div>
+  <div>CSS 3D Transform • IntersectionObserver • Pure JS</div>
+</footer>
+
+<script>
+// ══════════════════════════════════════════
+// SCROLL PROGRESS BAR
+// ══════════════════════════════════════════
+const progressBar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  progressBar.style.width = (window.scrollY / max * 100) + '%';
+});
+
+// ══════════════════════════════════════════
+// INTERSECTION OBSERVER — trigger roll animations
+// ══════════════════════════════════════════
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      // Trigger bar fills khi hero card vào view
+      if (entry.target.id === 'tiltCard') {
+        document.querySelectorAll('.card-bar-fill').forEach(b => b.classList.add('visible'));
+      }
+      // Count up numbers khi stat vào view
+      if (entry.target.classList.contains('stat-flip')) {
+        const numEl = entry.target.querySelector('[data-target]');
+        if (numEl && !numEl.dataset.counted) {
+          numEl.dataset.counted = true;
+          countUp(numEl, parseInt(numEl.dataset.target));
+        }
+      }
+    }
+  });
+}, { threshold: 0.15 });
+
+// Observe tất cả các elements có animation
+document.querySelectorAll(
+  '.roll-text, .feature-card, .stat-flip, .testimonial-card, .cta-box, #tiltCard'
+).forEach(el => observer.observe(el));
+
+// ══════════════════════════════════════════
+// COUNT UP ANIMATION
+// ══════════════════════════════════════════
+function countUp(el, target) {
+  const duration = 1800;
+  const start = performance.now();
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Easing: ease out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(eased * target).toLocaleString('vi-VN');
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// ══════════════════════════════════════════
+// DRUM WHEEL — tab switching với 3D roll
+// ══════════════════════════════════════════
+const tabs = document.querySelectorAll('.drum-tab');
+const panels = document.querySelectorAll('.drum-item');
+let currentPanel = 0;
+
+function switchPanel(newIndex) {
+  if (newIndex === currentPanel) return;
+
+  const currentEl = document.querySelector('.drum-item.active');
+  const nextEl = panels[newIndex];
+  const direction = newIndex > currentPanel ? 1 : -1;
+
+  // Exit: cuộn ra phía trên hoặc dưới
+  currentEl.style.transition = 'transform .4s ease, opacity .3s';
+  currentEl.style.transform = `rotateX(${direction * 90}deg) translateY(${direction * -30}px)`;
+  currentEl.style.opacity = '0';
+
+  setTimeout(() => {
+    currentEl.classList.remove('active');
+    currentEl.style.transform = '';
+    currentEl.style.opacity = '';
+    currentEl.style.transition = '';
+
+    // Enter: cuộn vào từ phía ngược lại
+    nextEl.style.transition = 'none';
+    nextEl.style.transform = `rotateX(${direction * -90}deg) translateY(${direction * 30}px)`;
+    nextEl.style.opacity = '0';
+    nextEl.classList.add('active');
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        nextEl.style.transition = 'transform .5s cubic-bezier(.16,1,.3,1), opacity .4s';
+        nextEl.style.transform = 'rotateX(0) translateY(0)';
+        nextEl.style.opacity = '1';
+      });
+    });
+  }, 350);
+
+  // Update tabs
+  tabs[currentPanel].classList.remove('active');
+  tabs[newIndex].classList.add('active');
+  currentPanel = newIndex;
+}
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => switchPanel(parseInt(tab.dataset.index)));
+});
+
+// ══════════════════════════════════════════
+// 3D TILT CARD — mouse tracking
+// ══════════════════════════════════════════
+const tiltCard = document.getElementById('tiltCard');
+const tiltParent = tiltCard?.parentElement;
+
+if (tiltParent) {
+  tiltParent.addEventListener('mousemove', (e) => {
+    const rect = tiltCard.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width / 2);  // -1 → 1
+    const dy = (e.clientY - cy) / (rect.height / 2); // -1 → 1
+
+    tiltCard.style.transform =
+      `rotateY(${dx * 18}deg) rotateX(${-dy * 12}deg) scale(1.03)`;
+  });
+
+  tiltParent.addEventListener('mouseleave', () => {
+    tiltCard.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    tiltCard.style.transition = 'transform .5s ease';
+  });
+
+  tiltParent.addEventListener('mouseenter', () => {
+    tiltCard.style.transition = 'transform .1s ease';
+  });
+}
+
+// ══════════════════════════════════════════
+// Hero roll text — trigger ngay khi load
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.querySelectorAll('.roll-text').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), i * 180);
+    });
+    // Bar fills cho hero card
+    setTimeout(() => {
+      document.querySelectorAll('.card-bar-fill').forEach(b => b.classList.add('visible'));
+    }, 600);
+  }, 200);
+});
+</script>
+</body>
+</html>
