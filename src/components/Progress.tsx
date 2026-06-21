@@ -38,11 +38,21 @@ export default function Progress() {
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-            <div className="text-lg font-bold text-text">Get it right?</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-lg font-bold text-text">Get it right?</div>
+              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300">
+                +20%
+              </span>
+            </div>
             <p className="mt-1 text-muted">A huge leap forward.</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-            <div className="text-lg font-bold text-text">Get it wrong?</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-lg font-bold text-text">Get it wrong?</div>
+              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-300">
+                +12%
+              </span>
+            </div>
             <p className="mt-1 text-muted">
               You still step forward. You tried, and that counts.
             </p>
