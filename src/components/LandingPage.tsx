@@ -79,6 +79,9 @@ export default function LandingPage({ copy }: { copy: LandingCopy }) {
       <div className="pointer-events-none absolute right-[10%] top-[142rem] h-[38rem] w-[38rem] rounded-full bg-brand/15 blur-[160px]" />
       <div className="pointer-events-none absolute left-1/2 top-[170rem] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-accent/15 blur-[160px]" />
       <div className="pointer-events-none absolute left-[10%] top-[215rem] h-[30rem] w-[30rem] rounded-full bg-brand/10 blur-[140px]" />
+      <div className="pointer-events-none absolute right-[12%] top-[250rem] h-[30rem] w-[30rem] rounded-full bg-accent/15 blur-[140px]" />
+      <div className="pointer-events-none absolute left-[12%] top-[280rem] h-[30rem] w-[30rem] rounded-full bg-brand/10 blur-[140px]" />
+      <div className="pointer-events-none absolute right-[10%] top-[310rem] h-[30rem] w-[30rem] rounded-full bg-accent/15 blur-[140px]" />
       <div className="relative z-10">
         <TopBar
           content={copy.navigation}
